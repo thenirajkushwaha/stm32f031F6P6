@@ -1,0 +1,50 @@
+
+TARGET = blink
+
+CC = arm-none-eabi-gcc
+OBJCOPY = arm-none-eabi-objcopy
+SIZE = arm-none-eabi-size
+
+CPU = -mcpu=cortex-m0 -mthumb
+
+CFLAGS = $(CPU) \
+         -Wall \
+         -Wextra \
+         -ffreestanding \
+         -nostdlib \
+         -nostartfiles \
+         -ffunction-sections \
+         -fdata-sections
+
+LDFLAGS = $(CPU) \
+          -T linker.ld \
+          -nostdlib \
+          -Wl,--gc-sections \
+          -Wl,-Map=build/$(TARGET).map
+
+SRC = src/blink.s
+
+all: build/$(TARGET).elf build/$(TARGET).hex build/$(TARGET).bin
+
+build:
+	mkdir -p build
+
+build/$(TARGET).elf: $(SRC) linker.ld | build
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SRC)
+	$(SIZE) $@
+
+build/$(TARGET).hex: build/$(TARGET).elf
+	$(OBJCOPY) -O ihex $< $@
+
+build/$(TARGET).bin: build/$(TARGET).elf
+	$(OBJCOPY) -O binary $< $@
+
+flash: build/$(TARGET).elf
+	openocd -f interface/stlink.cfg \
+	        -f target/stm32f0x.cfg \
+	        -c "program build/$(TARGET).elf verify reset exit"
+
+clean:
+	rm -rf build
+
+.PHONY: all flash clean
